@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/mattn/go-gtk/gtk"
+	"github.com/gotk3/gotk3/gtk"
 )
 
 func init() {
@@ -23,22 +23,34 @@ func closeDialog(dlg *gtk.Dialog) {
 	}
 }
 
+func closeNativeDialog(dlg *gtk.NativeDialog) {
+	dlg.Destroy()
+	/* The Destroy call itself isn't enough to remove the dialog from the screen; apparently
+	** that happens once the GTK main loop processes some further events. But if we're
+	** in a non-GTK app the main loop isn't running, so we empty the event queue before
+	** returning from the dialog functions.
+	** Not sure how this interacts with an actual GTK app... */
+	for gtk.EventsPending() {
+		gtk.MainIteration()
+	}
+}
+
 func (b *MsgBuilder) yesNo() bool {
-	dlg := gtk.NewMessageDialog(nil, 0, gtk.MESSAGE_QUESTION, gtk.BUTTONS_YES_NO, "%s", b.Msg)
+	dlg := gtk.MessageDialogNew(nil, 0, gtk.MESSAGE_QUESTION, gtk.BUTTONS_YES_NO, "%s", b.Msg)
 	dlg.SetTitle(firstOf(b.Dlg.Title, "Confirm?"))
 	defer closeDialog(&dlg.Dialog)
 	return dlg.Run() == gtk.RESPONSE_YES
 }
 
 func (b *MsgBuilder) info() {
-	dlg := gtk.NewMessageDialog(nil, 0, gtk.MESSAGE_INFO, gtk.BUTTONS_OK, "%s", b.Msg)
+	dlg := gtk.MessageDialogNew(nil, 0, gtk.MESSAGE_INFO, gtk.BUTTONS_OK, "%s", b.Msg)
 	dlg.SetTitle(firstOf(b.Dlg.Title, "Information"))
 	defer closeDialog(&dlg.Dialog)
 	dlg.Run()
 }
 
 func (b *MsgBuilder) error() {
-	dlg := gtk.NewMessageDialog(nil, 0, gtk.MESSAGE_ERROR, gtk.BUTTONS_OK, "%s", b.Msg)
+	dlg := gtk.MessageDialogNew(nil, 0, gtk.MESSAGE_ERROR, gtk.BUTTONS_OK, "%s", b.Msg)
 	dlg.SetTitle(firstOf(b.Dlg.Title, "Error"))
 	defer closeDialog(&dlg.Dialog)
 	dlg.Run()
@@ -61,9 +73,9 @@ func (b *FileBuilder) save() (string, error) {
 }
 
 func chooseFile(title string, action gtk.FileChooserAction, b *FileBuilder) (string, error) {
-	dlg := gtk.NewFileChooserDialog(firstOf(b.Dlg.Title, title), nil, action, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT, gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
+	dlg, _ := gtk.FileChooserNativeDialogNew(firstOf(b.Dlg.Title, title), nil, action, "OK", "Cancel")
 	for _, filt := range b.Filters {
-		filter := gtk.NewFileFilter()
+		filter, _ := gtk.FileFilterNew()
 		filter.SetName(filt.Desc)
 		for _, ext := range filt.Extensions {
 			filter.AddPattern("*." + ext)
@@ -74,8 +86,8 @@ func chooseFile(title string, action gtk.FileChooserAction, b *FileBuilder) (str
 		dlg.SetCurrentFolder(b.StartDir)
 	}
 	r := dlg.Run()
-	defer closeDialog(&dlg.Dialog)
-	if r == gtk.RESPONSE_ACCEPT {
+	defer closeNativeDialog(&dlg.NativeDialog)
+	if r == int(gtk.RESPONSE_ACCEPT) {
 		return dlg.GetFilename(), nil
 	}
 	return "", Cancelled

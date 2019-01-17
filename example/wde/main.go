@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/skelterjohn/go.wde"
-	"github.com/sqweek/dialog"
+	"github.com/zaklaus/dialog"
 	"image"
 	"image/color"
 	"image/draw"
